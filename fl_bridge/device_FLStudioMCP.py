@@ -1044,6 +1044,18 @@ def h_mixer_set_eq_band(p):
     return h_mixer_get_eq({"track": tr})
 
 
+def _sane_peak(value):
+    """FL returns uninitialized garbage (e.g. 2.5e+27) for never-used tracks;
+    treat anything outside a plausible range as silence."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    if v != v or v < 0.0 or v > 8.0:  # NaN or implausible
+        return 0.0
+    return v
+
+
 def h_mixer_get_peaks(p):
     """Current playback peak levels for one track. Values ~0..1, >1 = clipping.
 
@@ -1055,8 +1067,8 @@ def h_mixer_get_peaks(p):
     return {
         "track": tr,
         "name": _safe(mixer.getTrackName, tr),
-        "left": _safe(mixer.getTrackPeaks, tr, mode_l),
-        "right": _safe(mixer.getTrackPeaks, tr, mode_r),
+        "left": _sane_peak(_safe(mixer.getTrackPeaks, tr, mode_l)),
+        "right": _sane_peak(_safe(mixer.getTrackPeaks, tr, mode_r)),
         "playing": transport.isPlaying() == 1,
     }
 
@@ -1071,8 +1083,8 @@ def h_mixer_all_peaks(p):
     count = mixer.trackCount() if hasattr(mixer, "trackCount") else mixer.getTrackCount()
     out = []
     for tr in range(min(int(count), 127)):
-        l = _safe(mixer.getTrackPeaks, tr, mode_l) or 0.0
-        r = _safe(mixer.getTrackPeaks, tr, mode_r) or 0.0
+        l = _sane_peak(_safe(mixer.getTrackPeaks, tr, mode_l))
+        r = _sane_peak(_safe(mixer.getTrackPeaks, tr, mode_r))
         if not include_silent and l <= threshold and r <= threshold:
             continue
         out.append({
