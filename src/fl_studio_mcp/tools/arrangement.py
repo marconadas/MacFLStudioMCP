@@ -32,3 +32,8 @@ def register(mcp: FastMCP) -> None:
     def arrangement_play_time() -> dict:
         """Get current playback time in ticks + bars + seconds."""
         return get_client().call("arrangement.playTime")
+
+    @mcp.tool()
+    def arrangement_selection() -> dict:
+        """Current timeline selection (start/end ticks; -1 start = no selection)."""
+        return get_client().call("arrangement.selection")

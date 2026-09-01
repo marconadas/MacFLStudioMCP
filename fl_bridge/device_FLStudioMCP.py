@@ -51,7 +51,7 @@ import ui
 # Configuration
 # ----------------------------------------------------------------------------
 
-BRIDGE_VERSION = "0.3.0-metering-steps-snap"
+BRIDGE_VERSION = "0.4.0-browser-live-scorelog"
 MAX_REQUESTS_PER_TICK = 32
 
 
@@ -1842,6 +1842,151 @@ def h_pianoroll_duplicate(p):
 # Handler table
 # ----------------------------------------------------------------------------
 
+# ---- browser navigation -----------------------------------------------------
+
+_BROWSER_DIRS = {
+    "up": ("FPT_Up", 40),
+    "down": ("FPT_Down", 41),
+    "left": ("FPT_Left", 42),
+    "right": ("FPT_Right", 43),
+}
+
+
+def _browser_focused_node():
+    caption = _safe(ui.getFocusedNodeCaption, 0)
+    if caption is None:
+        caption = _safe(ui.getFocusedNodeCaption)
+    ftype = _safe(ui.getFocusedNodeFileType, 0)
+    if ftype is None:
+        ftype = _safe(ui.getFocusedNodeFileType)
+    return {"caption": caption, "file_type": ftype}
+
+
+def h_browser_focused(_):
+    return _browser_focused_node()
+
+
+def h_browser_navigate(p):
+    direction = str(p.get("direction", "down")).lower()
+    if direction not in _BROWSER_DIRS:
+        return {"ok": False, "error": "direction must be one of %s" % sorted(_BROWSER_DIRS)}
+    steps = max(1, int(p.get("steps", 1)))
+    shift = bool(p.get("shift", False))
+    const_name, fallback = _BROWSER_DIRS[direction]
+    d = getattr(midi, const_name, fallback)
+    for _ in range(steps):
+        ui.navigateBrowser(d, shift)
+    return _browser_focused_node()
+
+
+def h_browser_tabs(p):
+    steps = int(p.get("steps", 1))
+    fwd = getattr(midi, "FPT_Right", 43) if steps >= 0 else getattr(midi, "FPT_Left", 42)
+    for _ in range(abs(steps) or 1):
+        _safe(ui.navigateBrowserTabs, fwd)
+    return _browser_focused_node()
+
+
+def h_browser_preview(_):
+    """Audition the focused browser node (plays the sample/preset preview)."""
+    _safe(ui.previewBrowserMenuItem)
+    return _browser_focused_node()
+
+
+def h_browser_select(_):
+    """Activate the focused browser node — loads/opens it like double-click."""
+    _safe(ui.selectBrowserMenuItem)
+    return _browser_focused_node()
+
+
+# ---- performance mode / live clips ------------------------------------------
+
+def h_live_status(p):
+    out = {"performance_mode": _safe(playlist.getPerformanceModeState) == 1}
+    track = p.get("track") if p else None
+    if track is not None:
+        tr = int(track)
+        req = getattr(midi, "LB_Status_Simple", 0)
+        blocks = []
+        for b in range(int(p.get("blocks", 16))):
+            blocks.append({"block": b,
+                           "status": _safe(playlist.getLiveBlockStatus, tr, b, req)})
+        out["track"] = tr
+        out["blocks"] = blocks
+    return out
+
+
+def h_live_trigger(p):
+    tr = int(p["track"])
+    block = int(p["block"])
+    flags = p.get("flags")
+    if flags is None:
+        flags = getattr(midi, "TLC_MutePrevious", 1)
+    playlist.triggerLiveClip(tr, block, int(flags))
+    return {"triggered": {"track": tr, "block": block, "flags": int(flags)},
+            "performance_mode": _safe(playlist.getPerformanceModeState) == 1}
+
+
+def h_playlist_track_activity(p):
+    track = p.get("track") if p else None
+    if track is not None:
+        return {"track": int(track),
+                "activity": _safe(playlist.getTrackActivityLevel, int(track))}
+    out = []
+    for i in range(playlist.trackCount()):
+        lvl = _safe(playlist.getTrackActivityLevel, i) or 0.0
+        if lvl > 0:
+            out.append({"track": i, "name": _safe(playlist.getTrackName, i),
+                        "activity": round(lvl, 4)})
+    return {"tracks": out}
+
+
+# ---- score log / pattern extras / arrangement selection ---------------------
+
+def h_project_dump_score_log(p):
+    """Dump recently played (not recorded) notes into the selected pattern."""
+    seconds = int(p.get("seconds", 600))
+    silent = 1 if p.get("silent", True) else 0
+    general.dumpScoreLog(seconds, silent)
+    return {"ok": True, "pattern": patterns.patternNumber(),
+            "note": "score log dumped into the selected pattern"}
+
+
+def h_patterns_groups(_):
+    count = _safe(patterns.getPatternGroupCount) or 0
+    groups = []
+    for g in range(count):
+        members = _safe(patterns.getPatternsInGroup, g)
+        groups.append({
+            "index": g,
+            "name": _safe(patterns.getPatternGroupName, g),
+            "patterns": list(members) if members else [],
+        })
+    return {"groups": groups, "active": _safe(patterns.getActivePatternGroup)}
+
+
+def h_patterns_burn_loop(p):
+    idx = int(p.get("index", 0)) or patterns.patternNumber()
+    _safe(patterns.burnLoop, idx)
+    return {"ok": True, "pattern": idx}
+
+
+def h_arr_selection(_):
+    return {
+        "start_ticks": _safe(arrangement.selectionStart),
+        "end_ticks": _safe(arrangement.selectionEnd),
+        "current_time_ticks": _safe(arrangement.currentTime, 0),
+    }
+
+
+def h_ui_focused_plugin(_):
+    return {
+        "plugin": _safe(ui.getFocusedPluginName),
+        "caption": _safe(ui.getFocusedFormCaption),
+        "form_id": _safe(ui.getFocusedFormID),
+    }
+
+
 # ---- ui: snap mode ---------------------------------------------------------
 
 # Global snap selector values (midi.Snap_* constants, numeric fallbacks from
@@ -2024,6 +2169,22 @@ _HANDLERS = {
     "ui.scrollToChannel": h_ui_scroll_to_channel,
     "ui.getSnapMode": h_ui_get_snap,
     "ui.setSnapMode": h_ui_set_snap,
+    "ui.focusedPlugin": h_ui_focused_plugin,
+    # browser
+    "browser.focused": h_browser_focused,
+    "browser.navigate": h_browser_navigate,
+    "browser.tabs": h_browser_tabs,
+    "browser.preview": h_browser_preview,
+    "browser.select": h_browser_select,
+    # performance mode
+    "live.status": h_live_status,
+    "live.trigger": h_live_trigger,
+    "playlist.trackActivity": h_playlist_track_activity,
+    # score log / pattern extras / arrangement selection
+    "project.dumpScoreLog": h_project_dump_score_log,
+    "patterns.groups": h_patterns_groups,
+    "patterns.burnLoop": h_patterns_burn_loop,
+    "arrangement.selection": h_arr_selection,
     # piano roll (stage)
     "pianoroll.addNotes": h_pianoroll_add_notes,
     "pianoroll.addChord": h_pianoroll_add_chord,

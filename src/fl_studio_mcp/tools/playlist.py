@@ -81,3 +81,20 @@ def register(mcp: FastMCP) -> None:
     def playlist_delete_marker(index: int) -> dict:
         """Remove a playlist marker by index."""
         return get_client().call("playlist.deleteMarker", index=index)
+
+    @mcp.tool()
+    def playlist_track_activity(track: int | None = None) -> dict:
+        """Live activity level per playlist track during playback (all active
+        tracks if track omitted) — confirms which lanes are actually sounding."""
+        return get_client().call("playlist.trackActivity", track=track)
+
+    @mcp.tool()
+    def live_status(track: int | None = None, blocks: int = 16) -> dict:
+        """Performance-mode state; with a track, per-block clip status for it."""
+        return get_client().call("live.status", track=track, blocks=blocks)
+
+    @mcp.tool()
+    def live_trigger(track: int, block: int, flags: int | None = None) -> dict:
+        """Trigger a performance-mode live clip (playlist must be in
+        performance mode). Default flags mute the previous clip on the track."""
+        return get_client().call("live.trigger", track=track, block=block, flags=flags)

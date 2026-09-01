@@ -74,3 +74,14 @@ def register(mcp: FastMCP) -> None:
     def pattern_jump_to_previous() -> dict:
         """Select the previous pattern in the list."""
         return get_client().call("patterns.jumpPrev")
+
+    @mcp.tool()
+    def pattern_groups() -> dict:
+        """List pattern groups (name + member pattern indices) and the active group."""
+        return get_client().call("patterns.groups")
+
+    @mcp.tool()
+    def pattern_burn_loop(index: int | None = None) -> dict:
+        """Burn the pattern's loop-recorded takes into editable note data
+        (current pattern if index omitted)."""
+        return get_client().call("patterns.burnLoop", index=index)

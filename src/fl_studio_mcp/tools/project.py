@@ -66,3 +66,10 @@ def register(mcp: FastMCP) -> None:
     def project_version() -> dict:
         """Return FL Studio version string."""
         return get_client().call("project.version")
+
+    @mcp.tool()
+    def project_dump_score_log(seconds: int = 600, silent: bool = True) -> dict:
+        """Dump the last N seconds of notes the USER PLAYED (even without
+        recording) into the selected pattern — 'turn what I just jammed into a
+        pattern'. Select/create the target pattern first."""
+        return get_client().call("project.dumpScoreLog", seconds=seconds, silent=silent)

@@ -88,3 +88,37 @@ def register(mcp: FastMCP) -> None:
         Set this BEFORE any GUI clip placement/moves in the playlist so clicks
         land on the grid; restore the previous mode afterwards."""
         return get_client().call("ui.setSnapMode", mode=mode)
+
+    @mcp.tool()
+    def ui_focused_plugin() -> dict:
+        """Name/caption of the plugin editor window that currently has focus."""
+        return get_client().call("ui.focusedPlugin")
+
+    @mcp.tool()
+    def browser_focused() -> dict:
+        """Caption + file type of the currently focused FL browser node."""
+        return get_client().call("browser.focused")
+
+    @mcp.tool()
+    def browser_navigate(direction: str = "down", steps: int = 1, shift: bool = False) -> dict:
+        """Move the browser selection ('up'/'down'/'left'/'right'; left/right
+        collapse/expand folders). Returns the newly focused node so you can walk
+        the tree without screenshots."""
+        return get_client().call("browser.navigate", direction=direction, steps=steps, shift=shift)
+
+    @mcp.tool()
+    def browser_tabs(steps: int = 1) -> dict:
+        """Cycle browser tabs (negative steps = backwards)."""
+        return get_client().call("browser.tabs", steps=steps)
+
+    @mcp.tool()
+    def browser_preview() -> dict:
+        """Audition the focused browser node — plays the sample/preset preview
+        through FL's output (combine with fl-listen/metering to hear it)."""
+        return get_client().call("browser.preview")
+
+    @mcp.tool()
+    def browser_select() -> dict:
+        """Activate the focused browser node (like double-click: loads the
+        sample/preset into the project)."""
+        return get_client().call("browser.select")
