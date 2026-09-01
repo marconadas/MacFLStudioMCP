@@ -51,7 +51,7 @@ import ui
 # Configuration
 # ----------------------------------------------------------------------------
 
-BRIDGE_VERSION = "0.2.1-retarget-fix"
+BRIDGE_VERSION = "0.3.0-metering-steps-snap"
 MAX_REQUESTS_PER_TICK = 32
 
 
@@ -809,6 +809,78 @@ def h_channels_quick_quantize(p):
     return {"ok": True}
 
 
+# Per-step parameters (graph editor values). Names map to midi.p* constants,
+# with numeric fallbacks matching FL's published API stubs.
+_STEP_PARAMS = {
+    "pitch": ("pPitch", 0),
+    "velocity": ("pVelocity", 1),
+    "release": ("pRelease", 2),
+    "fine_pitch": ("pFinePitch", 3),
+    "pan": ("pPan", 4),
+    "mod_x": ("pModX", 5),
+    "mod_y": ("pModY", 6),
+    "shift": ("pShift", 7),
+}
+
+
+def _step_param_id(name):
+    const_name, fallback = _STEP_PARAMS[name]
+    return getattr(midi, const_name, fallback)
+
+
+def h_channels_get_step_params(p):
+    idx = int(p["index"])
+    steps = int(p.get("steps", 0)) or _safe(patterns.getPatternLength, patterns.patternNumber()) or 16
+    names = p.get("params") or ["velocity", "pan", "shift"]
+    names = [n for n in names if n in _STEP_PARAMS]
+    active_only = bool(p.get("active_only", True))
+    out = []
+    for s in range(steps):
+        if active_only and channels.getGridBit(idx, s) != 1:
+            continue
+        row = {"step": s, "on": channels.getGridBit(idx, s) == 1}
+        for name in names:
+            row[name] = _safe(channels.getCurrentStepParam, idx, s, _step_param_id(name))
+        out.append(row)
+    return {"steps": out, "length": steps, "params": names}
+
+
+def h_channels_set_step_params(p):
+    idx = int(p["index"])
+    pat = int(p.get("pattern", 0)) or patterns.patternNumber()
+    written = 0
+    errors = []
+    for item in p.get("steps", []):
+        s = int(item["step"])
+        for name, value in item.items():
+            if name in ("step",) or name not in _STEP_PARAMS or value is None:
+                continue
+            try:
+                channels.setStepParameterByIndex(idx, pat, s, _step_param_id(name), int(value))
+                written += 1
+            except Exception as exc:
+                errors.append({"step": s, "param": name, "error": str(exc)})
+    result = {"written": written, "pattern": pat}
+    if errors:
+        result["errors"] = errors
+    return result
+
+
+def h_channels_get_activity(p):
+    idx = p.get("index")
+    if idx is not None:
+        return {"index": int(idx),
+                "activity": _safe(channels.getActivityLevel, int(idx))}
+    out = []
+    for i in range(channels.channelCount()):
+        out.append({
+            "index": i,
+            "name": _safe(channels.getChannelName, i),
+            "activity": round(_safe(channels.getActivityLevel, i) or 0.0, 4),
+        })
+    return {"channels": out}
+
+
 # ---- mixer -----------------------------------------------------------------
 
 def _mx_info(i):
@@ -970,6 +1042,47 @@ def h_mixer_set_eq_band(p):
     if p.get("bandwidth") is not None and hasattr(mixer, "setEqBandwidth"):
         _safe(mixer.setEqBandwidth, tr, band, float(p["bandwidth"]))
     return h_mixer_get_eq({"track": tr})
+
+
+def h_mixer_get_peaks(p):
+    """Current playback peak levels for one track. Values ~0..1, >1 = clipping.
+
+    Only meaningful while the transport is playing; returns near-zero otherwise.
+    """
+    tr = int(p["track"])
+    mode_l = getattr(midi, "PEAK_L", 0)
+    mode_r = getattr(midi, "PEAK_R", 1)
+    return {
+        "track": tr,
+        "name": _safe(mixer.getTrackName, tr),
+        "left": _safe(mixer.getTrackPeaks, tr, mode_l),
+        "right": _safe(mixer.getTrackPeaks, tr, mode_r),
+        "playing": transport.isPlaying() == 1,
+    }
+
+
+def h_mixer_all_peaks(p):
+    """Peak snapshot across all mixer tracks (master @ 0). Silent tracks skipped
+    unless include_silent is set."""
+    include_silent = bool(p.get("include_silent", False))
+    threshold = float(p.get("threshold", 0.0001))
+    mode_l = getattr(midi, "PEAK_L", 0)
+    mode_r = getattr(midi, "PEAK_R", 1)
+    count = mixer.trackCount() if hasattr(mixer, "trackCount") else mixer.getTrackCount()
+    out = []
+    for tr in range(min(int(count), 127)):
+        l = _safe(mixer.getTrackPeaks, tr, mode_l) or 0.0
+        r = _safe(mixer.getTrackPeaks, tr, mode_r) or 0.0
+        if not include_silent and l <= threshold and r <= threshold:
+            continue
+        out.append({
+            "track": tr,
+            "name": _safe(mixer.getTrackName, tr),
+            "left": round(l, 4),
+            "right": round(r, 4),
+            "clipping": bool(l > 1.0 or r > 1.0),
+        })
+    return {"tracks": out, "playing": transport.isPlaying() == 1}
 
 
 def h_mixer_link_channel(p):
@@ -1717,6 +1830,46 @@ def h_pianoroll_duplicate(p):
 # Handler table
 # ----------------------------------------------------------------------------
 
+# ---- ui: snap mode ---------------------------------------------------------
+
+# Global snap selector values (midi.Snap_* constants, numeric fallbacks from
+# FL's published API stubs). Affects playlist + piano roll editing snap.
+_SNAP_MODES = {
+    "line": 0,
+    "cell": 1,
+    "none": 3,
+    "sixth_step": 4,
+    "fourth_step": 5,
+    "third_step": 6,
+    "half_step": 7,
+    "step": 8,
+    "sixth_beat": 9,
+    "fourth_beat": 10,
+    "third_beat": 11,
+    "half_beat": 12,
+    "beat": 13,
+    "bar": 14,
+}
+
+
+def h_ui_get_snap(_):
+    mode = ui.getSnapMode()
+    name = next((k for k, v in _SNAP_MODES.items() if v == mode), None)
+    return {"mode": mode, "name": name}
+
+
+def h_ui_set_snap(p):
+    mode = p.get("mode")
+    if isinstance(mode, str):
+        key = mode.strip().lower().replace(" ", "_").replace("/", "_").replace("-", "_")
+        if key not in _SNAP_MODES:
+            return {"ok": False, "error": "unknown snap mode '%s'" % mode,
+                    "valid": sorted(_SNAP_MODES)}
+        mode = _SNAP_MODES[key]
+    ui.setSnapMode(int(mode))
+    return h_ui_get_snap(None)
+
+
 _HANDLERS = {
     # meta
     "meta.ping": h_meta_ping,
@@ -1772,6 +1925,9 @@ _HANDLERS = {
     "channels.setStepSequence": h_channels_set_step_sequence,
     "channels.clearStepSequence": h_channels_clear_step_sequence,
     "channels.quickQuantize": h_channels_quick_quantize,
+    "channels.getStepParams": h_channels_get_step_params,
+    "channels.setStepParams": h_channels_set_step_params,
+    "channels.getActivity": h_channels_get_activity,
     # mixer
     "mixer.count": h_mixer_count,
     "mixer.trackInfo": h_mixer_track_info,
@@ -1791,6 +1947,8 @@ _HANDLERS = {
     "mixer.getEQ": h_mixer_get_eq,
     "mixer.setEQBand": h_mixer_set_eq_band,
     "mixer.linkChannelToTrack": h_mixer_link_channel,
+    "mixer.getPeaks": h_mixer_get_peaks,
+    "mixer.allPeaks": h_mixer_all_peaks,
     # plugins
     "plugins.isValid": h_plugins_is_valid,
     "plugins.name": h_plugins_name,
@@ -1852,6 +2010,8 @@ _HANDLERS = {
     "ui.openPianoRoll": h_ui_open_piano_roll,
     "ui.selectedChannel": h_ui_selected_channel,
     "ui.scrollToChannel": h_ui_scroll_to_channel,
+    "ui.getSnapMode": h_ui_get_snap,
+    "ui.setSnapMode": h_ui_set_snap,
     # piano roll (stage)
     "pianoroll.addNotes": h_pianoroll_add_notes,
     "pianoroll.addChord": h_pianoroll_add_chord,

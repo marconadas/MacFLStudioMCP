@@ -110,3 +110,35 @@ def register(mcp: FastMCP) -> None:
     def channel_quick_quantize(index: int) -> dict:
         """Quantize the channel's notes in the current pattern."""
         return get_client().call("channels.quickQuantize", index=index)
+
+    @mcp.tool()
+    def channel_get_step_params(
+        index: int,
+        params: list[str] | None = None,
+        steps: int | None = None,
+        active_only: bool = True,
+    ) -> dict:
+        """Read per-step graph-editor values for a channel in the current pattern.
+
+        params: any of velocity, pan, shift, pitch, fine_pitch, release, mod_x,
+        mod_y (default: velocity, pan, shift). Returns one row per active step."""
+        return get_client().call(
+            "channels.getStepParams",
+            index=index, params=params, steps=steps, active_only=active_only,
+        )
+
+    @mcp.tool()
+    def channel_set_step_params(index: int, steps: list[dict], pattern: int | None = None) -> dict:
+        """Write per-step graph-editor values (velocity/pan/shift/etc.) — adds
+        groove and dynamics beyond on/off grid bits.
+
+        steps: list of {"step": N, "velocity": 0..127, "pan": 0..127 (64=center),
+        "shift": ticks, "pitch": ..., ...}. Only provided keys are written.
+        pattern defaults to the current pattern."""
+        return get_client().call("channels.setStepParams", index=index, steps=steps, pattern=pattern)
+
+    @mcp.tool()
+    def channel_get_activity(index: int | None = None) -> dict:
+        """Live activity/VU level per channel (all channels if index omitted).
+        Useful during playback to confirm a channel is actually sounding."""
+        return get_client().call("channels.getActivity", index=index)

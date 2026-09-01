@@ -74,3 +74,17 @@ def register(mcp: FastMCP) -> None:
     def ui_scroll_to_channel(channel: int) -> dict:
         """Scroll the channel rack to show a channel."""
         return get_client().call("ui.scrollToChannel", channel=channel)
+
+    @mcp.tool()
+    def ui_get_snap_mode() -> dict:
+        """Current global snap mode (affects playlist + piano roll editing)."""
+        return get_client().call("ui.getSnapMode")
+
+    @mcp.tool()
+    def ui_set_snap_mode(mode: str) -> dict:
+        """Set the global snap mode. Accepts a name ('bar', 'beat', 'half_beat',
+        'step', 'line', 'cell', 'none', ...) or a numeric midi.Snap_* value.
+
+        Set this BEFORE any GUI clip placement/moves in the playlist so clicks
+        land on the grid; restore the previous mode afterwards."""
+        return get_client().call("ui.setSnapMode", mode=mode)

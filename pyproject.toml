@@ -1,13 +1,13 @@
 [project]
 name = "fl-studio-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Comprehensive Model Context Protocol server for FL Studio — full control over transport, patterns, channels, mixer, plugins, piano roll, playlist, arrangement, automation and rendering."
 requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "fLMCP" }]
 dependencies = [
-    "mcp[cli]>=1.2.0",
+    "mcp[cli]>=1.2.0,<2",
     "anyio>=4.0",
     "pydantic>=2.0",
 ]

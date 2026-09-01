@@ -99,3 +99,19 @@ def register(mcp: FastMCP) -> None:
     def mixer_link_to_channel(channel: int, track: int, mode: str = "replace") -> dict:
         """Link a channel to a mixer track. mode='replace'|'add'."""
         return get_client().call("mixer.linkChannelToTrack", channel=channel, track=track, mode=mode)
+
+    @mcp.tool()
+    def mixer_get_peaks(track: int) -> dict:
+        """Live peak levels (left/right, ~0..1, >1 = clipping) for one mixer track.
+
+        Only meaningful while playing — start the transport first, poll during
+        playback. Master is track 0."""
+        return get_client().call("mixer.getPeaks", track=track)
+
+    @mcp.tool()
+    def mixer_all_peaks(include_silent: bool = False) -> dict:
+        """Live peak snapshot for every mixer track (master @ 0), for gain
+        staging and clipping checks. Poll a few times during playback for a
+        representative picture; silent tracks are omitted unless
+        include_silent."""
+        return get_client().call("mixer.allPeaks", include_silent=include_silent)
