@@ -22,15 +22,17 @@ match the Python signatures.
 `transport_toggle_metronome`, `transport_toggle_countdown_before_recording`,
 `transport_jog(steps)`
 
-## Patterns (13)
+## Patterns (15)
 
 `pattern_count`, `pattern_current`, `pattern_list`, `pattern_select(index)`,
 `pattern_create(name)`, `pattern_rename(index, name)`,
 `pattern_set_color(index, color)`, `pattern_clone(index, new_name)`,
 `pattern_delete(index)`, `pattern_set_length(index, bars)`,
-`pattern_find_by_name(name)`, `pattern_jump_to_next`, `pattern_jump_to_previous`
+`pattern_find_by_name(name)`, `pattern_jump_to_next`, `pattern_jump_to_previous`,
+`pattern_groups` — groups + members + active group,
+`pattern_burn_loop(index)` — burn loop takes into editable notes
 
-## Channels (20)
+## Channels (23)
 
 `channel_count`, `channel_info(index)`, `channel_all`, `channel_selected`,
 `channel_select(index, exclusive)`, `channel_set_volume(index, volume)`,
@@ -41,9 +43,13 @@ match the Python signatures.
 `channel_trigger_note(index, note, velocity, duration_ms)`,
 `channel_get_grid_bit(index, position)`, `channel_set_grid_bit(index, position, value)`,
 `channel_get_step_sequence(index, pattern)`, `channel_set_step_sequence(index, steps, pattern)`,
-`channel_clear_step_sequence(index, pattern)`, `channel_quick_quantize(index)`
+`channel_clear_step_sequence(index, pattern)`, `channel_quick_quantize(index)`,
+`channel_get_step_params(index, params, steps, active_only)` — per-step
+graph-editor values (velocity/pan/pitch/…),
+`channel_set_step_params(index, steps, pattern)` — write per-step values,
+`channel_get_activity(index)` — live per-channel VU during playback
 
-## Mixer (18)
+## Mixer (20)
 
 `mixer_count`, `mixer_track_info(track)`, `mixer_all_tracks(include_empty)`,
 `mixer_set_volume(track, volume)`, `mixer_set_pan(track, pan)`,
@@ -54,7 +60,9 @@ match the Python signatures.
 `mixer_route(src_track, dst_track, enabled)`, `mixer_fx_slots(track)`,
 `mixer_select(track)`, `mixer_get_eq(track)`,
 `mixer_set_eq_band(track, band, gain, frequency)`,
-`mixer_link_to_channel(channel, track, mode)`
+`mixer_link_to_channel(channel, track, mode)`,
+`mixer_get_peaks(track)` — live L/R peaks (>1.0 = clipping),
+`mixer_all_peaks(include_silent)` — peak snapshot of every track
 
 ## Plugins (13)
 
@@ -82,7 +90,7 @@ dicts `{midi, time (bars), duration (bars), velocity (0..1), pan?}`.
 `piano_roll_humanize(channel, timing_jitter_bars, velocity_jitter, pattern)`
 `piano_roll_duplicate(channel, source_time_bars, length_bars, dest_time_bars, pattern)`
 
-## Playlist (14)
+## Playlist (17)
 
 `playlist_track_count`, `playlist_track_info(track)`,
 `playlist_all_tracks(include_empty)`,
@@ -92,12 +100,16 @@ dicts `{midi, time (bars), duration (bars), velocity (0..1), pan?}`.
 `playlist_place_pattern(track, pattern, position_bars, length_bars)`  ⚠ limited (see LIMITATIONS.md),
 `playlist_delete_clip(track, position_bars)`  ⚠ limited,
 `playlist_refresh`, `playlist_list_markers`,
-`playlist_add_marker(position_bars, name)`, `playlist_delete_marker(index)`
+`playlist_add_marker(position_bars, name)`, `playlist_delete_marker(index)`,
+`playlist_track_activity(track)` — live per-lane activity,
+`live_status(track, blocks)` / `live_trigger(track, block, flags)` —
+performance-mode clip status + launching
 
-## Arrangement (5)
+## Arrangement (6)
 
 `arrangement_current`, `arrangement_list`, `arrangement_select(index)`,
-`arrangement_jump_marker(direction)`, `arrangement_play_time`
+`arrangement_jump_marker(direction)`, `arrangement_play_time`,
+`arrangement_selection` — current timeline selection in ticks
 
 ## Automation (5)
 
@@ -108,19 +120,27 @@ All accept `points = [{time_bars, value}]` and record the automation live.
 `automation_record_mixer_volume(track, points)`,
 `automation_record_plugin_param(channel, param, points, slot, location)`
 
-## Project (11)
+## Project (12)
 
 `project_metadata`, `project_new(template)`, `project_open(path)`,
 `project_save`, `project_save_as(path)`, `project_undo`, `project_redo`,
 `project_undo_history`, `project_save_undo(name, flags)`,
-`project_render(path, format, mode)`, `project_version`
+`project_render(path, format, mode)`, `project_version`,
+`project_dump_score_log(seconds, silent)` — dump recently played notes into
+the selected pattern
 
-## UI (7)
+## UI & Browser (16)
 
 `ui_focused_window`, `ui_show_window(name, focus)`, `ui_hide_window(name)`,
 `ui_hint(message)`,
 `ui_open_piano_roll_for_channel(channel, pattern)`,
-`ui_selected_channel`, `ui_scroll_to_channel(channel)`
+`ui_selected_channel`, `ui_scroll_to_channel(channel)`,
+`ui_get_snap_mode` / `ui_set_snap_mode(mode)` — global snap by name
+(`bar`, `beat`, `step`, `line`, `none`, …), `ui_focused_plugin`,
+`browser_navigate(direction, steps, shift)`, `browser_focused`,
+`browser_tabs(steps)`, `browser_preview` — audition focused node,
+`browser_select` — load focused node into the project
+(classic browser tabs only; the FL Cloud "SOUNDS" tab has no scripting hooks)
 
 ## Generators (high-level, ≈ 14)
 

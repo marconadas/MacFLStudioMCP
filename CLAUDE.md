@@ -9,7 +9,7 @@ This file gives any future Claude session enough context to be useful immediatel
 
 1. This is a macOS FL Studio MCP server. The remote is `https://github.com/calvinw/MacFLStudioMCP.git` (already configured).
 2. Everything is committed and pushed. Start by running `git status` to see if there are any uncommitted local changes.
-3. **Run tests before every commit:** `cd /Users/calvinw/develop/MacFLStudioMCP && .venv/bin/python -m pytest tests/ -v` — all 15 should pass.
+3. **Run tests before every commit:** from the repo root, `.venv/bin/python -m pytest tests/ -v` — all 15 should pass.
 4. **After any code change to the MCP server, tell the user to restart it.** The server runs as a persistent process; changes to `src/fl_studio_mcp/` are not picked up until restart. In Claude Code: `/mcp` → restart `fl-studio-mcp`, or start a fresh session.
 5. **Generator tools (`gen_*`) are intentionally disabled.** Do not re-enable them. The LLM computes music theory directly and writes notes with `piano_roll_write_patterns`.
 6. **Piano roll workflow is mandatory** — use the `compose` skill. It enforces read → plan → write (plural) → confirm.
@@ -142,7 +142,7 @@ There is currently no known way to open a socket inside FL Studio's Python inter
 4. **`./install_mac.sh`** — copies bridge files, creates `bus/`, pre-creates stub files.
 5. **Accessibility permission** — System Settings → Privacy & Security → Accessibility → terminal app + Claude Code. Required for `pynput`.
 6. **First-run bind** — open any piano roll → scripts dropdown → click `ComposeWithLLM`. Repeat each FL relaunch.
-7. **MCP registered** — `claude mcp add --transport stdio fl-studio-mcp -- /Users/calvinw/develop/MacFLStudioMCP/.venv/bin/python -m fl_studio_mcp` (in `~/.claude.json`).
+7. **MCP registered** — `claude mcp add --transport stdio fl-studio-mcp -- <repo>/.venv/bin/python -m fl_studio_mcp` (in `~/.claude.json`).
 
 ## Files of interest
 
@@ -189,7 +189,7 @@ tests/
 
 ## Development rules
 
-- **Run tests before every commit:** `cd /Users/calvinw/develop/MacFLStudioMCP && .venv/bin/python -m pytest tests/ -v` — all 15 must pass.
+- **Run tests before every commit:** from the repo root, `.venv/bin/python -m pytest tests/ -v` — all 15 must pass.
 - **Smoke test with FL running** for any change that touches `bridge_client.py`, `file_bridge.py`, `device_FLStudioMCP.py`, or `ComposeWithLLM.pyscript`: `.venv/bin/python scripts/smoke_test_mac.py`
 - **Do not add `os.mkdir`, threads, subprocess, or sockets inside the FL bridge** — all blocked by audit hook.
 - **Do not pass `new_window=1` to `openEventEditor` repeatedly** — crashes FL with duplicate PRForm.
@@ -289,7 +289,7 @@ This calls `openEventEditor` and always retargets the viewport immediately.
 ## Test scripts
 
 ```bash
-cd /Users/calvinw/develop/MacFLStudioMCP
+cd <path-to-repo>
 
 # Unit tests (all offline, no FL needed) — run before every commit
 .venv/bin/python -m pytest tests/ -v

@@ -9,6 +9,19 @@ The original repo has a good overview of the architecture and what is possible �
 this fork adapts it for macOS where FL Studio's Python interpreter blocks sockets,
 threads, and subprocesses, requiring a file-bus approach instead of TCP.
 
+## What's new in 0.2.0
+
+This fork extends the port with (see [CHANGELOG.md](CHANGELOG.md) for details):
+
+- **Live metering** — per-track mixer peaks + per-channel VU during playback
+  (gain staging, clipping detection) without any audio capture.
+- **Per-step parameters** — velocity/pan/pitch/mod per step-sequencer step.
+- **Snap mode control** — set the global snap (`bar`, `beat`, …) by name.
+- **Browser navigation** — walk the FL browser, audition and load samples and
+  presets programmatically.
+- **Performance mode** — live-clip status + triggering.
+- **Score log dump** — turn what you just jammed (unrecorded) into a pattern.
+
 **See it in action (Web based Claude.ai using FL Studio):**
 
 [![FLStudioMCP demo](https://img.youtube.com/vi/np0DxRHHmsQ/maxresdefault.jpg)](https://youtu.be/np0DxRHHmsQ?si=1u5Bi02eK1uj5EIz)
@@ -164,7 +177,13 @@ Copy that `https://…trycloudflare.com` URL — you'll use it in the next step.
 
 4. Click **Save**. Claude.ai will connect and list the available tools.
 
+## Credits & lineage
+
+- Original concept & Windows implementation: [geezoria/FLStudioMCP](https://github.com/geezoria/FLStudioMCP)
+- macOS port (file-bus bridge): [calvinw/MacFLStudioMCP](https://github.com/calvinw/MacFLStudioMCP)
+- 0.2.0 extensions (metering, step params, snap, browser, performance mode): this fork
+
 ## License
 
-MIT. See [`LICENSE`](LICENSE) if present, or the `license` field in
-[`pyproject.toml`](pyproject.toml).
+MIT — see [`LICENSE`](LICENSE). Changes are documented in
+[`CHANGELOG.md`](CHANGELOG.md).
