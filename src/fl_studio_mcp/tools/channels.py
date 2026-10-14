@@ -2,14 +2,54 @@
 
 from __future__ import annotations
 
+import difflib
+import subprocess
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from ..bridge_client import get_client
 
+ADD_MENU = 'menu 1 of menu bar item "Add" of menu bar 1'
+
+
+def _q(s: str) -> str:
+    """AppleScript string literal."""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _fl_menu(command: str) -> subprocess.CompletedProcess:
+    """Run a System Events command against FL's native menu bar (FL may stay in the background).
+    Needs Accessibility permission for the MCP host app."""
+    script = 'tell application "System Events" to tell process "OsxFL" to ' + command
+    return subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=20)
+
 
 def register(mcp: FastMCP) -> None:
+    @mcp.tool()
+    def channel_add_plugin(plugin: str) -> dict:
+        """Add an instrument (generator) as a new Channel Rack channel by its name in FL's Add
+        menu (e.g. 'FLEX', 'Serum 2', 'Fruit Kick'). Presses FL's native macOS Add menu, so FL
+        can stay in the background; needs Accessibility permission for the MCP host app.
+        FL inserts the channel after the selected one; the result reports where."""
+        c = get_client()
+
+        def names() -> list[str]:
+            return [ch["name"] for ch in c.call("channels.all")["channels"]]
+
+        before = names()
+        r = _fl_menu("click menu item %s of %s" % (_q(plugin.strip()), ADD_MENU))
+        if r.returncode:
+            # ponytail: comma-split list; a plugin name containing ", " would split wrong (suggestions only)
+            items = _fl_menu("get name of menu items of " + ADD_MENU).stdout.strip().split(", ")
+            return {"ok": False, "error": r.stderr.strip(),
+                    "suggestions": difflib.get_close_matches(plugin, items, 5, 0.4)}
+        after = names()
+        if len(after) != len(before) + 1:
+            return {"ok": False, "error": "no channel was added"}
+        new = next((i for i, (a, b) in enumerate(zip(before, after)) if a != b), len(before))
+        return {"ok": True, "index": new, "name": after[new]}
+
     @mcp.tool()
     def channel_count(global_count: bool = True) -> dict:
         """Total channel count (global = across all groups)."""
