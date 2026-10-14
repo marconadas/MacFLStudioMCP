@@ -25,6 +25,7 @@ def test_build_app():
         "project_save", "project_undo", "project_render",
         "ui_show_window", "ui_hint",
         "piano_roll_status",
+        "fl_api_introspect", "fl_api_call", "channel_add_plugin",
     ]:
         assert required in names, f"missing tool: {required}"
     # Generators are intentionally disabled

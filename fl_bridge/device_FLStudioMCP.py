@@ -51,7 +51,7 @@ import ui
 # Configuration
 # ----------------------------------------------------------------------------
 
-BRIDGE_VERSION = "0.4.0-browser-live-scorelog"
+BRIDGE_VERSION = "0.5.0-api"
 MAX_REQUESTS_PER_TICK = 32
 
 
@@ -286,6 +286,39 @@ def h_meta_info(_):
         "bus_dir": str(BUS_DIR),
         "transport_kind": "file_polling",
     }
+
+
+# ---- api: generic access to every FL scripting function ---------------------
+
+_API_MODULES = {m.__name__: m for m in (arrangement, channels, device, general, mixer,
+                                         patterns, playlist, plugins, transport, ui)}
+
+
+def _jsonable(value):
+    try:
+        json.dumps(value)
+        return value
+    except (TypeError, ValueError):
+        return repr(value)
+
+
+def h_api_introspect(_):
+    """Every callable FL exposes to scripts, read live from the running build."""
+    return {
+        "fl_api_version": _safe(general.getVersion),
+        "modules": {name: sorted(n for n in dir(m)
+                                 if not n.startswith("_") and callable(getattr(m, n)))
+                    for name, m in _API_MODULES.items()},
+    }
+
+
+def h_api_call(p):
+    """Call any public function of an FL scripting module: {module, fn, args}."""
+    mod = _API_MODULES.get(p.get("module"))
+    fn = str(p.get("fn") or "")
+    if mod is None or fn.startswith("_") or not callable(getattr(mod, fn, None)):
+        raise ValueError("unknown API function: %s.%s" % (p.get("module"), fn))
+    return {"result": _jsonable(getattr(mod, fn)(*(p.get("args") or [])))}
 
 
 def h_meta_test_restrictions(_):
@@ -2032,6 +2065,9 @@ _HANDLERS = {
     "meta.ping": h_meta_ping,
     "meta.info": h_meta_info,
     "meta.testRestrictions": h_meta_test_restrictions,
+    # api
+    "api.introspect": h_api_introspect,
+    "api.call": h_api_call,
     # transport
     "transport.start": h_transport_start,
     "transport.stop": h_transport_stop,

@@ -19,6 +19,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .resources import project as r_project
 from .tools import (
+    api,
     arrangement,
     automation,
     channels,
@@ -78,6 +79,7 @@ def build_app(host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
 
     # tool modules
     meta.register(mcp)
+    api.register(mcp)
     transport.register(mcp)
     patterns.register(mcp)
     channels.register(mcp)
